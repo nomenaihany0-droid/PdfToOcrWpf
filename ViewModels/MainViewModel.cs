@@ -22,20 +22,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         BrowsePdfCommand = new RelayCommand(BrowsePdf, () => !IsRunning);
         BrowseTxtCommand = new RelayCommand(BrowseTxt, () => !IsRunning);
 
-        StartCommand = new RelayCommand(
-            async () =>
-            {
-                try { await StartAsync(); }
-                catch (Exception ex)
-                {
-                    IsRunning = false;
-                    StatusText = "Erreur.";
-                    MessageBox.Show($"Erreur inattendue :\n{ex}",
-                                    "Erreur",
-                                    MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            },
-            () => !IsRunning && HasInputs);
+       StartCommand = new RelayCommand(
+    async () =>
+    {
+        try { await StartAsync(); }
+        catch (Exception ex)
+        {
+            IsRunning = false;
+            StatusText = "Erreur.";
+            MessageBox.Show($"Erreur inattendue :\n{ex}",
+                            "Erreur",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    },
+    () => !IsRunning);
 
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
 
