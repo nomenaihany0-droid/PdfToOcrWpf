@@ -1,0 +1,17 @@
+key,fr,en,de,es
+WindowTitle,PDF vers OCR vers TXT,PDF to OCR to TXT,PDF zu OCR zu TXT,PDF a OCR a TXT
+HeaderTitle,PDF vers OCR vers TXT,PDF to OCR to TXT,PDF zu OCR zu TXT,PDF a OCR a TXT
+HeaderSubtitle,"Convertit chaque page du PDF en image, extrait le texte avec Tesseract, et l'écrit dans un fichier .txt unique.","Converts each PDF page into an image, extracts the text with Tesseract, and writes it to a single .txt file.","Konvertiert jede PDF-Seite in ein Bild, extrahiert den Text mit Tesseract und schreibt ihn in eine einzelne .txt-Datei.","Convierte cada página del PDF en una imagen, extrae el texto con Tesseract y lo escribe en un único archivo .txt."
+CardTesseractTitle,0. Exécutable Tesseract,0. Tesseract executable,0. Tesseract-Programm,0. Ejecutable de Tesseract
+CardTesseractHelp,"Chemin complet vers tesseract.exe (ex. C:\Program Files\Tesseract-OCR\tesseract.exe). Le dossier tessdata doit se trouver à côté.","Full path to tesseract.exe (e.g. C:\Program Files\Tesseract-OCR\tesseract.exe). The tessdata folder must be next to it.","Vollständiger Pfad zu tesseract.exe (z. B. C:\Program Files\Tesseract-OCR\tesseract.exe). Der tessdata-Ordner muss daneben liegen.","Ruta completa a tesseract.exe (ej. C:\Program Files\Tesseract-OCR\tesseract.exe). La carpeta tessdata debe estar al lado."
+CardPdfTitle,1. Fichier PDF source,1. Source PDF file,1. Quell-PDF-Datei,1. Archivo PDF de origen
+CardTxtTitle,2. Fichier texte de sortie,2. Output text file,2. Ausgabe-Textdatei,2. Archivo de texto de salida
+CardOptionsTitle,3. Options OCR,3. OCR options,3. OCR-Optionen,3. Opciones de OCR
+CardProgressTitle,4. Progression,4. Progress,4. Fortschritt,4. Progreso
+LabelLanguage,Langue :,Language:,Sprache:,Idioma:
+LabelDpi,DPI :,DPI:,DPI:,DPI:
+LabelInterfaceLanguage,Langue de l'interface :,Interface language:,Oberflächensprache:,Idioma de la interfaz:
+ButtonBrowse,Parcourir…,Browse…,Durchsuchen…,Examinar…
+ButtonSaveAs,Enregistrer sous…,Save as…,Speichern unter…,Guardar como…
+ButtonStart,▶  Démarrer la conversion,▶  Start conversion,▶  Konvertierung starten,▶  Iniciar conversión
+ButtonCancel,✕  Annuler,✕  Cancel,✕  Abbrechen,✕  Cancelar
