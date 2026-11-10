@@ -39,8 +39,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
 
-        // Initialise backing fields directly — do NOT go through the setters,
-        // or we'd write settings.json on every launch.
         _pdfPath = string.Empty;
         _txtPath = string.Empty;
         _tesseractExePath = _settings.TesseractExePath;
@@ -48,8 +46,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _dpi = _settings.Dpi;
         _statusText = "Prêt.";
     }
-
-    // --- Bindable properties ---------------------------------------
 
     private string _pdfPath;
     public string PdfPath
@@ -76,14 +72,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string Language
     {
         get => _language;
-        set => Set(ref _language, value);   // settings saved later, on Start
+        set => Set(ref _language, value);
     }
 
     private int _dpi;
     public int Dpi
     {
         get => _dpi;
-        set => Set(ref _dpi, value);        // settings saved later, on Start
+        set => Set(ref _dpi, value);
     }
 
     private string _statusText;
@@ -123,14 +119,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string[] Languages { get; } = { "fra", "eng", "fra+eng", "deu", "spa" };
     public int[] Dpis { get; } = { 200, 300, 400, 500 };
 
-    // --- Commands --------------------------------------------------
-
     public RelayCommand BrowsePdfCommand { get; }
     public RelayCommand BrowseTxtCommand { get; }
     public RelayCommand StartCommand { get; }
     public RelayCommand CancelCommand { get; }
-
-    // --- Actions ---------------------------------------------------
 
     private void BrowsePdf()
     {
@@ -164,8 +156,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task StartAsync()
     {
-        // Defensive: CanExecute already prevents UI re-entry, but a direct
-        // Execute() call would otherwise race on _cts and double-dispose it.
         if (IsRunning) return;
 
         if (!File.Exists(PdfPath))
@@ -183,9 +173,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        // Path.GetDirectoryName can return null (root paths, malformed paths).
-        var tessDataPath = Path.GetDirectoryName(TesseractExePath);
-        if (string.IsNullOrEmpty(tessDataPath))
+        var tesseractDir = Path.GetDirectoryName(TesseractExePath);
+        if (string.IsNullOrEmpty(tesseractDir))
         {
             MessageBox.Show("Impossible de déterminer le dossier de tesseract.exe.",
                             "Tesseract invalide",
@@ -193,7 +182,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        // Persist options once per run — the only place that touches disk.
+        var tessDataPath = Path.Combine(tesseractDir, "tessdata");
+        if (!Directory.Exists(tessDataPath))
+        {
+            try
+            {
+                Directory.CreateDirectory(tessDataPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Impossible de créer le dossier tessdata :\n{tessDataPath}\n\n{ex.Message}",
+                                "Erreur de création",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
+
         _settings.TesseractExePath = TesseractExePath;
         _settings.Language = Language;
         _settings.Dpi = Dpi;
@@ -202,8 +206,39 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsRunning = true;
         ProgressValue = 0;
         ProgressMax = 1;
-        StatusText = "Ouverture du PDF…";
+        StatusText = "Vérification des fichiers de langue…";
         _cts = new CancellationTokenSource();
+
+        try
+        {
+            // Télécharger les fichiers .traineddata manquants
+            var downloadStatus = new Progress<string>(msg => StatusText = msg);
+            await TessdataDownloader.EnsureLanguageAsync(
+                tessDataPath, Language, downloadStatus, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Téléchargement annulé.";
+            IsRunning = false;
+            _cts.Dispose();
+            _cts = null;
+            return;
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Erreur de téléchargement.";
+            MessageBox.Show($"Impossible de télécharger les fichiers de langue :\n{ex.Message}\n\n" +
+                            "Vérifiez votre connexion Internet, ou placez manuellement " +
+                            $"le fichier {Language}.traineddata dans :\n{tessDataPath}",
+                            "Téléchargement échoué",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+            IsRunning = false;
+            _cts.Dispose();
+            _cts = null;
+            return;
+        }
+
+        StatusText = "Ouverture du PDF…";
 
         var progress = new Progress<ConversionProgress>(p =>
         {
@@ -256,8 +291,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _cts?.Cancel();
         StatusText = "Annulation demandée…";
     }
-
-    // --- Plumbing --------------------------------------------------
 
     private void RefreshCommands()
     {
