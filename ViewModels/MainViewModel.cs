@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Win32;
 using PdfToOcrWpf.Helpers;
+using PdfToOcrWpf.Localization;
 using PdfToOcrWpf.Services;
 
 namespace PdfToOcrWpf.ViewModels;
@@ -22,20 +23,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         BrowsePdfCommand = new RelayCommand(BrowsePdf, () => !IsRunning);
         BrowseTxtCommand = new RelayCommand(BrowseTxt, () => !IsRunning);
 
-       StartCommand = new RelayCommand(
-    async () =>
-    {
-        try { await StartAsync(); }
-        catch (Exception ex)
-        {
-            IsRunning = false;
-            StatusText = "Erreur.";
-            MessageBox.Show($"Erreur inattendue :\n{ex}",
-                            "Erreur",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    },
-    () => !IsRunning);
+        StartCommand = new RelayCommand(
+            async () =>
+            {
+                try { await StartAsync(); }
+                catch (Exception ex)
+                {
+                    IsRunning = false;
+                    StatusText = "Erreur.";
+                    MessageBox.Show($"Erreur inattendue :\n{ex}",
+                                    "Erreur",
+                                    MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            },
+            () => !IsRunning);
 
         CancelCommand = new RelayCommand(Cancel, () => IsRunning);
 
@@ -45,6 +46,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _language = _settings.Language;
         _dpi = _settings.Dpi;
         _statusText = "Prêt.";
+
+        LocalizationManager.Instance.PropertyChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(IsFrenchSelected));
+            OnPropertyChanged(nameof(IsEnglishSelected));
+            OnPropertyChanged(nameof(IsGermanSelected));
+            OnPropertyChanged(nameof(IsSpanishSelected));
+        };
     }
 
     private string _pdfPath;
@@ -109,6 +118,44 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _isRunning;
         set { Set(ref _isRunning, value); RefreshCommands(); }
     }
+
+    // --- Interface language (RadioButtons) -------------------------
+
+    public bool IsFrenchSelected
+    {
+        get => LocalizationManager.Instance.CurrentLanguage == "fr";
+        set { if (value) SetUiLanguage("fr"); }
+    }
+
+    public bool IsEnglishSelected
+    {
+        get => LocalizationManager.Instance.CurrentLanguage == "en";
+        set { if (value) SetUiLanguage("en"); }
+    }
+
+    public bool IsGermanSelected
+    {
+        get => LocalizationManager.Instance.CurrentLanguage == "de";
+        set { if (value) SetUiLanguage("de"); }
+    }
+
+    public bool IsSpanishSelected
+    {
+        get => LocalizationManager.Instance.CurrentLanguage == "es";
+        set { if (value) SetUiLanguage("es"); }
+    }
+
+    private void SetUiLanguage(string code)
+    {
+        if (LocalizationManager.Instance.CurrentLanguage == code) return;
+        LocalizationManager.Instance.CurrentLanguage = code;
+        OnPropertyChanged(nameof(IsFrenchSelected));
+        OnPropertyChanged(nameof(IsEnglishSelected));
+        OnPropertyChanged(nameof(IsGermanSelected));
+        OnPropertyChanged(nameof(IsSpanishSelected));
+    }
+
+    // --- Reste du ViewModel (inchangé) -----------------------------
 
     private bool HasInputs =>
         !string.IsNullOrWhiteSpace(PdfPath) &&
@@ -211,7 +258,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            // Télécharger les fichiers .traineddata manquants
             var downloadStatus = new Progress<string>(msg => StatusText = msg);
             await TessdataDownloader.EnsureLanguageAsync(
                 tessDataPath, Language, downloadStatus, _cts.Token);
@@ -306,7 +352,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         if (Equals(field, value)) return false;
         field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        OnPropertyChanged(name);
         return true;
     }
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
