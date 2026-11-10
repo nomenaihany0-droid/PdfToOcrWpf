@@ -1,11 +1,10 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using PDFtoImage;
+using SkiaSharp;
 using Tesseract;
 
 namespace PdfToOcrWpf.Services;
@@ -14,12 +13,6 @@ public sealed record ConversionProgress(int PageNumber, int TotalPages, TimeSpan
 
 public sealed class OcrService
 {
-    /// <summary>
-    /// Renders each PDF page to a bitmap, OCRs it, and writes it to <paramref name="txtPath"/>.
-    /// One TesseractEngine per conversion (not per page). Output is written to
-    /// "&lt;txtPath&gt;.tmp" and moved into place at the end, so a cancel never destroys
-    /// the user's previous file and partial results are still preserved.
-    /// </summary>
     public async Task ConvertAsync(
         string pdfPath,
         string txtPath,
@@ -49,20 +42,17 @@ public sealed class OcrService
                 for (int pageIndex = 0; pageIndex < totalPages; pageIndex++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-
                     int pageNumber = pageIndex + 1;
 
-                    Bitmap? bitmap = null;
+                    SKBitmap? skBitmap = null;
                     try
                     {
                         using var pageStream = File.OpenRead(pdfPath);
-                        bitmap = Conversion.ToImage(
-                            pageStream, pageIndex,
+                        skBitmap = Conversion.ToImage(pageStream, pageIndex,
                             options: new RenderOptions { Dpi = dpi });
                     }
                     catch (ArgumentOutOfRangeException)
                     {
-                        // PDF shrank under us (file replaced mid-run) — stop cleanly.
                         break;
                     }
                     catch (Exception ex)
@@ -79,13 +69,13 @@ public sealed class OcrService
                         continue;
                     }
 
-                    using (bitmap)
+                    using (skBitmap)
                     {
                         string text;
                         try
                         {
                             text = await Task.Run(
-                                () => RunTesseract(engine, bitmap), cancellationToken);
+                                () => RunTesseract(engine, skBitmap), cancellationToken);
                         }
                         catch (Exception ex)
                         {
@@ -109,7 +99,6 @@ public sealed class OcrService
         }
         catch
         {
-            // Cancellation or unexpected error: preserve partial output, then rethrow.
             MoveIntoPlace(tempPath, txtPath);
             throw;
         }
@@ -117,33 +106,26 @@ public sealed class OcrService
 
     private static void MoveIntoPlace(string tempPath, string finalPath)
     {
-        if (!File.Exists(tempPath))
-            return;
-
+        if (!File.Exists(tempPath)) return;
         try
         {
-            if (File.Exists(finalPath))
-                File.Delete(finalPath);
+            if (File.Exists(finalPath)) File.Delete(finalPath);
             File.Move(tempPath, finalPath);
         }
-        catch
-        {
-            // Best effort; leave the .tmp behind rather than crash the caller.
-        }
+        catch { }
     }
 
     private static async Task TryWriteAsync(StreamWriter writer, string text)
     {
         try { await writer.WriteAsync(text); }
-        catch { /* output file unwritable; keep going */ }
+        catch { }
     }
 
-    private static string RunTesseract(TesseractEngine engine, Bitmap bitmap)
+    private static string RunTesseract(TesseractEngine engine, SKBitmap bitmap)
     {
-        using var ms = new MemoryStream();
-        bitmap.Save(ms, ImageFormat.Png);
-        ms.Position = 0;
-
+        // SKBitmap -> PNG bytes -> Tesseract Pix
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        using var ms = new MemoryStream(data.ToArray());
         using var pix = Pix.LoadFromMemory(ms.ToArray());
         using var page = engine.Process(pix);
         return page.GetText() ?? string.Empty;
